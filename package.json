@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "p1:verilog": "python3 p1-chip-gates/hdl_to_verilog.py",
+    "p1:viz": "p1-chip-gates/show_chip.sh all all-levels all"
+  },
+  "dependencies": {
+    "digitaljs": "^0.14.2",
+    "yosys2digitaljs": "^0.10.3"
+  }
+}

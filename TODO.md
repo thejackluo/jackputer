@@ -12,6 +12,7 @@
 - Install Yosys and visualization tools with `sudo apt install -y yosys graphviz xdot` when needed.
 - Validate generated Verilog with `p1-chip-gates/show_chip.sh Mux8Way16`.
 - Add project-specific visualization examples as more chips are completed.
+- Keep DigitalJS pages working via `p1-chip-gates/serve_viz.sh` when browser `file://` loading is unreliable.
 
 ## Future Chips
 

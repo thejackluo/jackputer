@@ -1,0 +1,22 @@
+digraph "Xor" {
+label="Xor";
+rankdir="LR";
+remincross=true;
+n1 [ shape=octagon, label="a", color="black", fontcolor="black" ];
+n2 [ shape=diamond, label="aNdb", color="black", fontcolor="black" ];
+n3 [ shape=diamond, label="aOb", color="black", fontcolor="black" ];
+n4 [ shape=octagon, label="b", color="black", fontcolor="black" ];
+n5 [ shape=octagon, label="out", color="black", fontcolor="black" ];
+c6 [ shape=record, label="{{<p1> a|<p4> b}|and_2\nAnd|{<p5> out}}",  ];
+c7 [ shape=record, label="{{<p1> a|<p4> b}|nand_1\nNand|{<p5> out}}",  ];
+c8 [ shape=record, label="{{<p1> a|<p4> b}|or_0\nOr|{<p5> out}}",  ];
+n1:e -> c7:p1:w [color="black", fontcolor="black", label=""];
+n1:e -> c8:p1:w [color="black", fontcolor="black", label=""];
+c7:p5:e -> n2:w [color="black", fontcolor="black", label=""];
+n2:e -> c6:p4:w [color="black", fontcolor="black", label=""];
+c8:p5:e -> n3:w [color="black", fontcolor="black", label=""];
+n3:e -> c6:p1:w [color="black", fontcolor="black", label=""];
+n4:e -> c7:p4:w [color="black", fontcolor="black", label=""];
+n4:e -> c8:p4:w [color="black", fontcolor="black", label=""];
+c6:p5:e -> n5:w [color="black", fontcolor="black", label=""];
+}

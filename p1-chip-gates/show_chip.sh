@@ -4,6 +4,7 @@ set -euo pipefail
 top="${1:-Mux}"
 view="${2:-original}"
 format="${3:-svg}"
+levels=(original level1 level2 max)
 
 case "$view" in
     svg|dot|open)
@@ -18,10 +19,10 @@ if [[ "$top" != "all" && ! "$top" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
 fi
 
 case "$view" in
-    original|level[0-9]*|max|nand) ;;
+    original|level[0-9]*|max|nand|all-levels) ;;
     *)
         printf 'invalid view: %s\n' "$view" >&2
-        printf 'usage: p1-chip-gates/show_chip.sh [ChipName|all] [original|level1|level2|max] [svg|dot|open]\n' >&2
+        printf 'usage: p1-chip-gates/show_chip.sh [ChipName|all] [original|level1|level2|max|all-levels] [svg|dot|digitaljs|all|open]\n' >&2
         exit 2
         ;;
 esac
@@ -156,11 +157,14 @@ generate_one() {
     local selected_top="$1"
     local selected_view="$2"
     local selected_format="$3"
-    local prefix="viz/${selected_top}.${selected_view}"
+    local output_dir="viz/${selected_top}/${selected_view}"
+    local prefix="${output_dir}/circuit"
     local dot_file="${prefix}.dot"
     local svg_file="${prefix}.svg"
+    local json_file="${prefix}.yosys.json"
     local prep_cmd
 
+    mkdir -p "$output_dir"
     prep_cmd="hierarchy -check -top ${selected_top}; proc; opt; $(flatten_cmd "$selected_top" "$selected_view")"
 
     case "$selected_format" in
@@ -179,20 +183,51 @@ generate_one() {
             clean_dot_labels "$dot_file"
             printf 'wrote p1-chip-gates/%s\n' "$dot_file"
             ;;
+        digitaljs)
+            if ! command -v node >/dev/null 2>&1; then
+                printf 'node is not installed. Install Node.js or use nvm, then run: npm install\n' >&2
+                exit 1
+            fi
+            if [[ ! -d ../node_modules/yosys2digitaljs || ! -d ../node_modules/digitaljs ]]; then
+                printf 'DigitalJS dependencies are not installed. Run: npm install\n' >&2
+                exit 1
+            fi
+            yosys -q -p "${read_cmd}; ${prep_cmd}; write_json ${json_file}"
+            node digitaljs_export.js "$json_file" "$output_dir" "${selected_top} ${selected_view}"
+            rm -f "$json_file"
+            ;;
+        all)
+            generate_one "$selected_top" "$selected_view" svg
+            generate_one "$selected_top" "$selected_view" digitaljs
+            ;;
         open)
             yosys -p "${read_cmd}; ${prep_cmd}; show ${selected_top}"
             ;;
         *)
-            printf 'usage: p1-chip-gates/show_chip.sh [ChipName|all] [original|level1|level2|max] [svg|dot|open]\n' >&2
+            printf 'usage: p1-chip-gates/show_chip.sh [ChipName|all] [original|level1|level2|max|all-levels] [svg|dot|digitaljs|all|open]\n' >&2
             exit 2
             ;;
     esac
 }
 
+generate_views() {
+    local selected_top="$1"
+    local selected_view="$2"
+    local selected_format="$3"
+
+    if [[ "$selected_view" == "all-levels" ]]; then
+        for level in "${levels[@]}"; do
+            generate_one "$selected_top" "$level" "$selected_format"
+        done
+    else
+        generate_one "$selected_top" "$selected_view" "$selected_format"
+    fi
+}
+
 if [[ "$top" == "all" ]]; then
     for module in $(list_modules); do
-        generate_one "$module" "$view" "$format"
+        generate_views "$module" "$view" "$format"
     done
 else
-    generate_one "$top" "$view" "$format"
+    generate_views "$top" "$view" "$format"
 fi

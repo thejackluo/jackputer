@@ -2,16 +2,17 @@
 
 This folder keeps nand2tetris HDL source files in `hdl/`, generated Verilog for completed chips in `v/`, and blackbox Verilog stubs for incomplete chips in `v-incomplete/`.
 
-## Install Yosys
+## Install Tools
 
 On Ubuntu or WSL Ubuntu:
 
 ```bash
 sudo apt update
 sudo apt install -y yosys graphviz xdot
+npm install
 ```
 
-`yosys` reads and synthesizes Verilog. `graphviz` and `xdot` let Yosys draw the circuit graph.
+`yosys` reads and synthesizes Verilog. `graphviz` and `xdot` let Yosys draw the circuit graph. `npm install` installs DigitalJS and the Yosys-to-DigitalJS converter used by the interactive HTML pages.
 
 ## Regenerate Verilog
 
@@ -31,7 +32,7 @@ Every completed chip is generated structurally from the `.hdl` file. Incomplete 
 
 ## Visualize A Chip
 
-After installing Yosys, run one of these from the repository root:
+After installing Yosys and running `npm install`, run one of these from the repository root:
 
 ```bash
 p1-chip-gates/show_chip.sh Nand
@@ -41,10 +42,33 @@ p1-chip-gates/show_chip.sh Mux level2
 p1-chip-gates/show_chip.sh Mux max
 ```
 
-The default mode writes files under `p1-chip-gates/viz/`, including an SVG that opens directly in Cursor:
+The default mode writes per-gate folders under `p1-chip-gates/viz/`:
 
 ```text
-p1-chip-gates/viz/Mux.max.svg
+p1-chip-gates/viz/Mux/original/
+p1-chip-gates/viz/Mux/level1/
+p1-chip-gates/viz/Mux/level2/
+p1-chip-gates/viz/Mux/max/
+```
+
+Each level folder contains:
+
+1. `circuit.svg`: static schematic you can open directly in Cursor.
+2. `circuit.dot`: Graphviz source for the schematic.
+3. `index.html`: interactive DigitalJS page.
+
+For the most reliable DigitalJS experience from WSL, serve the folder locally and open it in your Windows browser:
+
+```bash
+p1-chip-gates/serve_viz.sh
+```
+
+Then open:
+
+```text
+http://localhost:8000/Mux/original/
+http://localhost:8000/Mux/max/
+http://localhost:8000/Mux8Way16/max/
 ```
 
 The recursion modes are:
@@ -61,10 +85,22 @@ p1-chip-gates/show_chip.sh all original
 p1-chip-gates/show_chip.sh all max
 ```
 
+To generate every level for every completed gate, including DigitalJS pages:
+
+```bash
+p1-chip-gates/show_chip.sh all all-levels all
+```
+
 You can also choose DOT instead of SVG:
 
 ```bash
 p1-chip-gates/show_chip.sh Mux max dot
+```
+
+Or generate only DigitalJS HTML:
+
+```bash
+p1-chip-gates/show_chip.sh Mux max digitaljs
 ```
 
 Yosys sometimes inserts slice nodes for bus wiring. Labels like `slice [2] to [0]` mean "take input bit 2 and wire it to output bit 0"; these are generated wiring adapters, not extra logic gates.
