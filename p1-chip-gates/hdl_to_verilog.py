@@ -297,7 +297,10 @@ def emit_chip(chip: Chip, interfaces: dict[str, Chip], blackbox: bool = False) -
         interface = interfaces.get(part.chip)
         for pin_name, connections in output_groups(part, interface).items():
             if needs_temp(connections):
-                temp_wires[(part_index, pin_name)] = pin_width(interface, connections[0].pin)
+                if interface and pin_name in interface.pins:
+                    temp_wires[(part_index, pin_name)] = interface.pins[pin_name].width
+                else:
+                    temp_wires[(part_index, pin_name)] = pin_width(interface, connections[0].pin)
 
     wire_lines = []
     for name, width in sorted(wires.items()):
@@ -376,12 +379,17 @@ def main() -> None:
     parser.add_argument("input_dir", type=Path, nargs="?", default=script_dir / "hdl", help="directory containing .hdl files")
     parser.add_argument("output_dir", type=Path, nargs="?", default=script_dir / "v", help="directory for completed generated .v files")
     parser.add_argument("--recursive", action="store_true", help="read .hdl files recursively")
+    parser.add_argument("--interface-dir", type=Path, action="append", default=[], help="extra .hdl directory used only for dependency pin widths")
     parser.add_argument("--incomplete-output-dir", type=Path, default=script_dir / "v-incomplete", help="write blackbox stubs for incomplete chips")
+    parser.add_argument("--no-nand", action="store_true", help="do not write a generated Nand.v into the output directory")
     parser.add_argument("--no-clean", action="store_true", help="do not remove old generated .v files before writing")
     args = parser.parse_args()
 
     chips = discover_chips(args.input_dir, args.recursive)
-    interfaces = {**BUILTINS, **chips}
+    interface_chips: dict[str, Chip] = {}
+    for interface_dir in args.interface_dir:
+        interface_chips.update(discover_chips(interface_dir, args.recursive))
+    interfaces = {**BUILTINS, **interface_chips, **chips}
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.incomplete_output_dir:
@@ -389,7 +397,8 @@ def main() -> None:
     if not args.no_clean:
         clean_generated(args.output_dir, args.incomplete_output_dir)
 
-    write_generated(args.output_dir / "Nand.v", NAND_VERILOG)
+    if not args.no_nand:
+        write_generated(args.output_dir / "Nand.v", NAND_VERILOG)
 
     for chip in sorted(chips.values(), key=lambda item: item.name):
         if not chip.complete:
