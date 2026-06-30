@@ -6,7 +6,7 @@ module DMux(
 );
     wire NotSel;
 
-    Not not0(.in(sel), .out(NotSel));
-    And and0(.a(in), .b(NotSel), .out(a));
-    And and1(.a(in), .b(sel), .out(b));
+    Not not_0(.in(sel), .out(NotSel));
+    And and_1(.a(in), .b(NotSel), .out(a));
+    And and_2(.a(in), .b(sel), .out(b));
 endmodule

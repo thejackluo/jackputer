@@ -5,6 +5,6 @@ module And(
 );
     wire aNandb;
 
-    Nand nand0(.a(a), .b(b), .out(aNandb));
-    Not not0(.in(aNandb), .out(out));
+    Nand nand_0(.a(a), .b(b), .out(aNandb));
+    Not not_1(.in(aNandb), .out(out));
 endmodule
