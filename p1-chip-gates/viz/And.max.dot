@@ -1,0 +1,25 @@
+digraph "And" {
+label="And";
+rankdir="LR";
+remincross=true;
+n1 [ shape=octagon, label="a", color="black", fontcolor="black" ];
+n2 [ shape=diamond, label="aNandb", color="black", fontcolor="black" ];
+n3 [ shape=octagon, label="b", color="black", fontcolor="black" ];
+n4 [ shape=diamond, label="not_1.in", color="black", fontcolor="black" ];
+n5 [ shape=diamond, label="not_1.out", color="black", fontcolor="black" ];
+n6 [ shape=octagon, label="out", color="black", fontcolor="black" ];
+c7 [ shape=record, label="{{<p1> a|<p3> b}|nand_0\nNand|{<p6> out}}",  ];
+c8 [ shape=record, label="{{<p1> a|<p3> b}|not_1.nand_0\nNand|{<p6> out}}",  ];
+x0 [shape=box, style=rounded, label="BUF", ];
+x1 [shape=box, style=rounded, label="BUF", ];
+n1:e -> c7:p1:w [color="black", fontcolor="black", label=""];
+x0:e -> n2:w [color="black", fontcolor="black", label=""];
+n3:e -> c7:p3:w [color="black", fontcolor="black", label=""];
+c7:p6:e -> n4:w [color="black", fontcolor="black", label=""];
+n4:e -> c8:p1:w [color="black", fontcolor="black", label=""];
+n4:e -> c8:p3:w [color="black", fontcolor="black", label=""];
+n4:e -> x0:w [color="black", fontcolor="black", label=""];
+c8:p6:e -> n5:w [color="black", fontcolor="black", label=""];
+n5:e -> x1:w [color="black", fontcolor="black", label=""];
+x1:e -> n6:w [color="black", fontcolor="black", label=""];
+}
