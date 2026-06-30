@@ -40,12 +40,31 @@ chip_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$chip_dir"
 mkdir -p viz
 shopt -s nullglob
-verilog_files=(v/*.v v-incomplete/*.v)
+source_verilog_files=(v/*.v v-incomplete/*.v)
+verilog_files=()
 
-if [[ ${#verilog_files[@]} -eq 0 ]]; then
+if [[ ${#source_verilog_files[@]} -eq 0 ]]; then
     printf 'no Verilog files found. Run: python3 p1-chip-gates/hdl_to_verilog.py\n' >&2
     exit 1
 fi
+
+nand_primitive="viz/.NandPrimitive.v"
+cat > "$nand_primitive" <<'EOF'
+(* blackbox *)
+module Nand(
+    input wire a,
+    input wire b,
+    output wire out
+);
+endmodule
+EOF
+
+for file in "${source_verilog_files[@]}"; do
+    if [[ "$(basename "$file")" != "Nand.v" ]]; then
+        verilog_files+=("$file")
+    fi
+done
+verilog_files+=("$nand_primitive")
 
 read_cmd="read_verilog ${verilog_files[*]}"
 
@@ -58,13 +77,15 @@ list_modules() {
 flatten_cmd() {
     local selected_top="$1"
     local selected_view="$2"
+    shift 2
+    local extra_verilog_files=("$@")
 
-    if [[ "$selected_view" == "original" ]]; then
+    if [[ "$selected_view" == "original" || "$selected_top" == "NandPrimitiveView" ]]; then
         printf 'check'
         return
     fi
 
-    python3 - "$selected_top" "$selected_view" "${verilog_files[@]}" <<'PY'
+    python3 - "$selected_top" "$selected_view" "${verilog_files[@]}" "${extra_verilog_files[@]}" <<'PY'
 from __future__ import annotations
 
 import re
@@ -108,7 +129,7 @@ if view.startswith("level"):
 
 commands = []
 for module in sorted(keep):
-    if module != top:
+    if module != top and module != "Nand":
         commands.append(f"setattr -mod -set keep_hierarchy 1 {module}")
 commands.append(f"flatten {top}")
 commands.append("opt_clean")
@@ -163,9 +184,29 @@ generate_one() {
     local svg_file="${prefix}.svg"
     local json_file="${prefix}.yosys.json"
     local prep_cmd
+    local yosys_top="$selected_top"
+    local selected_read_cmd="$read_cmd"
+    local nand_wrapper=""
+    local extra_flatten_files=()
 
     mkdir -p "$output_dir"
-    prep_cmd="hierarchy -check -top ${selected_top}; proc; opt; $(flatten_cmd "$selected_top" "$selected_view")"
+    if [[ "$selected_top" == "Nand" ]]; then
+        yosys_top="NandPrimitiveView"
+        nand_wrapper="${output_dir}/.NandPrimitiveView.v"
+        cat > "$nand_wrapper" <<'EOF'
+module NandPrimitiveView(
+    input wire a,
+    input wire b,
+    output wire out
+);
+    Nand nand_gate(.a(a), .b(b), .out(out));
+endmodule
+EOF
+        selected_read_cmd="${read_cmd} ${nand_wrapper}"
+        extra_flatten_files+=("$nand_wrapper")
+    fi
+
+    prep_cmd="hierarchy -check -top ${yosys_top}; proc; opt; $(flatten_cmd "$yosys_top" "$selected_view" "${extra_flatten_files[@]}")"
 
     case "$selected_format" in
         svg)
@@ -173,13 +214,13 @@ generate_one() {
                 printf 'graphviz dot is not installed. Try: sudo apt install -y graphviz\n' >&2
                 exit 1
             fi
-            yosys -q -p "${read_cmd}; ${prep_cmd}; show -format dot -viewer none -prefix ${prefix} ${selected_top}"
+            yosys -q -p "${selected_read_cmd}; ${prep_cmd}; show -format dot -viewer none -prefix ${prefix} ${yosys_top}"
             clean_dot_labels "$dot_file"
             dot -Tsvg "$dot_file" -o "$svg_file"
             printf 'wrote p1-chip-gates/%s\n' "$svg_file"
             ;;
         dot)
-            yosys -q -p "${read_cmd}; ${prep_cmd}; show -format dot -viewer none -prefix ${prefix} ${selected_top}"
+            yosys -q -p "${selected_read_cmd}; ${prep_cmd}; show -format dot -viewer none -prefix ${prefix} ${yosys_top}"
             clean_dot_labels "$dot_file"
             printf 'wrote p1-chip-gates/%s\n' "$dot_file"
             ;;
@@ -192,7 +233,7 @@ generate_one() {
                 printf 'DigitalJS dependencies are not installed. Run: npm install\n' >&2
                 exit 1
             fi
-            yosys -q -p "${read_cmd}; ${prep_cmd}; write_json ${json_file}"
+            yosys -q -p "${selected_read_cmd}; ${prep_cmd}; write_json ${json_file}"
             node digitaljs_export.js "$json_file" "$output_dir" "${selected_top} ${selected_view}"
             rm -f "$json_file"
             ;;
@@ -201,13 +242,17 @@ generate_one() {
             generate_one "$selected_top" "$selected_view" digitaljs
             ;;
         open)
-            yosys -p "${read_cmd}; ${prep_cmd}; show ${selected_top}"
+            yosys -p "${selected_read_cmd}; ${prep_cmd}; show ${yosys_top}"
             ;;
         *)
             printf 'usage: p1-chip-gates/show_chip.sh [ChipName|all] [original|level1|level2|max|all-levels] [svg|dot|digitaljs|all|open]\n' >&2
             exit 2
             ;;
     esac
+
+    if [[ -n "$nand_wrapper" ]]; then
+        rm -f "$nand_wrapper"
+    fi
 }
 
 generate_views() {
@@ -231,3 +276,9 @@ if [[ "$top" == "all" ]]; then
 else
     generate_views "$top" "$view" "$format"
 fi
+
+if [[ "$format" != "open" ]]; then
+    python3 build_viz_index.py
+fi
+
+rm -f "$nand_primitive"

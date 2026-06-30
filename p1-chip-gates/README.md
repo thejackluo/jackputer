@@ -22,13 +22,15 @@ Run this from the repository root:
 python3 p1-chip-gates/hdl_to_verilog.py
 ```
 
-The compiler always writes `p1-chip-gates/v/Nand.v` as the base NAND gate:
+The compiler always writes `p1-chip-gates/v/Nand.v` as the base NAND gate source:
 
 ```verilog
 assign out = ~(a & b);
 ```
 
 Every completed chip is generated structurally from the `.hdl` file. Incomplete chips are emitted as empty blackbox modules in `v-incomplete/` when `--incomplete-output-dir` is used.
+
+For visualization, `Nand` is treated as the primitive leaf gate. The generated schematics and DigitalJS pages do not expand `Nand` into `And` plus `Not`; other chips still expand from your generated project-one Verilog in `p1-chip-gates/v/`.
 
 ## Visualize A Chip
 
@@ -77,6 +79,8 @@ The recursion modes are:
 2. `level1`: expand one level of subchips.
 3. `level2`: expand two levels of subchips.
 4. `max`: expand recursively down to `Nand` leaf gates.
+
+`Nand` itself is shown as one primitive `Nand` gate in every view.
 
 To generate one view for every completed gate:
 
