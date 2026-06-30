@@ -43,6 +43,8 @@ const dashboardPath = rel(outputDir, path.join(repoRoot, 'viz', 'index.html'));
 const svgPath = rel(outputDir, path.join(outputDir, 'circuit.svg'));
 const childNav = renderChildNav(outputDir, moduleDeps.get(gateName) || new Map());
 const levelNav = renderLevelNav(outputDir, gateName, viewName);
+const deviceCount = Object.keys(circuit.devices || {}).length;
+const defaultZoomLevel = deviceCount > 500 ? -4 : deviceCount > 150 ? -3 : deviceCount > 60 ? -2 : 0;
 
 const assetPath = path.relative(outputDir, path.join(assetsDir, 'main.js')).replaceAll(path.sep, '/');
 const html = `<!doctype html>
@@ -59,9 +61,10 @@ const html = `<!doctype html>
       nav a.active { background: #dbeafe; color: #1e3a8a; }
       nav a:hover { text-decoration: underline; }
       .muted { color: #64748b; }
-      #paper { min-height: 70vh; border-bottom: 1px solid #ddd; }
+      #paper { height: calc(100vh - 170px); min-height: 520px; border-bottom: 1px solid #ddd; overflow: auto; background: #fff; }
       #monitor, #iopanel { padding: 8px 12px; }
-      button { font: inherit; }
+      button, select { font: inherit; }
+      .zoom-readout { min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
     </style>
   </head>
   <body>
@@ -70,6 +73,17 @@ const html = `<!doctype html>
       <button name="start" type="button">Start</button>
       <button name="stop" type="button">Stop</button>
       <label><input name="fixed" type="checkbox"> Fixed layout</label>
+      <label>Layout
+        <select name="layout">
+          <option value="dagre">Compact</option>
+          <option value="elkjs">Orthogonal</option>
+        </select>
+      </label>
+      <button name="zoomOut" type="button">Zoom -</button>
+      <button name="zoomReset" type="button">100%</button>
+      <button name="zoomIn" type="button">Zoom +</button>
+      <button name="zoomFit" type="button">Fit</button>
+      <span class="zoom-readout" data-zoom>100%</span>
       <button name="json" type="button">Reload JSON</button>
     </header>
     <nav>
@@ -85,16 +99,48 @@ const html = `<!doctype html>
     <div id="monitor"></div>
     <script>
       const circuitJson = ${JSON.stringify(circuit)};
+      const defaultZoomLevel = ${defaultZoomLevel};
       let circuit, monitor, monitorview, iopanel, paper;
+      let zoomLevel = defaultZoomLevel;
 
       document.addEventListener('DOMContentLoaded', () => {
         const start = $('button[name=start]');
         const stop = $('button[name=stop]');
         const fixedInput = $('input[name=fixed]');
+        const layoutSelect = $('select[name=layout]');
+        const zoomLabel = $('[data-zoom]');
         const papers = {};
 
         function setFixed(fixed) {
           Object.values(papers).forEach((p) => p.fixed(fixed));
+        }
+
+        function zoomScale(level) {
+          return Math.pow(1.1, level);
+        }
+
+        function updateZoomLabel() {
+          zoomLabel.text(Math.round(zoomScale(zoomLevel) * 100) + '%');
+        }
+
+        function setZoom(level) {
+          if (!paper || !circuit) return;
+          zoomLevel = Math.max(-30, Math.min(20, level));
+          circuit.scaleAndRefreshPaper(paper, zoomLevel);
+          updateZoomLabel();
+        }
+
+        function fitToWindow() {
+          if (!paper) return;
+          if (typeof paper.scaleContentToFit === 'function') {
+            paper.scaleContentToFit({ padding: 30, minScale: 0.02, maxScale: 2 });
+            const current = paper.scale && paper.scale();
+            const scale = current && current.sx ? current.sx : zoomScale(zoomLevel);
+            zoomLevel = Math.round(Math.log(scale) / Math.log(1.1));
+            updateZoomLabel();
+          } else {
+            setZoom(defaultZoomLevel - 2);
+          }
         }
 
         function loadCircuit(json) {
@@ -105,7 +151,7 @@ const html = `<!doctype html>
           $('#monitor').empty();
           $('#iopanel').empty();
 
-          circuit = new digitaljs.Circuit(json);
+          circuit = new digitaljs.Circuit(json, { layoutEngine: layoutSelect.val() });
           monitor = new digitaljs.Monitor(circuit);
           monitorview = new digitaljs.MonitorView({ model: monitor, el: $('#monitor') });
           iopanel = new digitaljs.IOPanelView({ model: circuit, el: $('#iopanel') });
@@ -122,6 +168,9 @@ const html = `<!doctype html>
             stop.prop('disabled', !circuit.running);
           });
           paper = circuit.displayOn($('#paper'));
+          zoomLevel = defaultZoomLevel;
+          updateZoomLabel();
+          paper.once('render:done', () => setZoom(zoomLevel));
           setFixed(fixedInput.prop('checked'));
           circuit.start();
         }
@@ -129,6 +178,16 @@ const html = `<!doctype html>
         start.on('click', () => circuit.start());
         stop.on('click', () => circuit.stop());
         fixedInput.on('change', () => setFixed(fixedInput.prop('checked')));
+        layoutSelect.on('change', () => loadCircuit(circuitJson));
+        $('button[name=zoomOut]').on('click', () => setZoom(zoomLevel - 1));
+        $('button[name=zoomReset]').on('click', () => setZoom(0));
+        $('button[name=zoomIn]').on('click', () => setZoom(zoomLevel + 1));
+        $('button[name=zoomFit]').on('click', fitToWindow);
+        $('#paper').on('wheel', (event) => {
+          if (!event.ctrlKey && !event.metaKey) return;
+          event.preventDefault();
+          setZoom(zoomLevel + (event.originalEvent.deltaY < 0 ? 1 : -1));
+        });
         $('button[name=json]').on('click', () => loadCircuit(circuit.toJSON(false)));
         loadCircuit(circuitJson);
       });

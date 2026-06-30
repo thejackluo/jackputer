@@ -12,9 +12,10 @@
       nav a.active { background: #dbeafe; color: #1e3a8a; }
       nav a:hover { text-decoration: underline; }
       .muted { color: #64748b; }
-      #paper { min-height: 70vh; border-bottom: 1px solid #ddd; }
+      #paper { height: calc(100vh - 170px); min-height: 520px; border-bottom: 1px solid #ddd; overflow: auto; background: #fff; }
       #monitor, #iopanel { padding: 8px 12px; }
-      button { font: inherit; }
+      button, select { font: inherit; }
+      .zoom-readout { min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
     </style>
   </head>
   <body>
@@ -23,6 +24,17 @@
       <button name="start" type="button">Start</button>
       <button name="stop" type="button">Stop</button>
       <label><input name="fixed" type="checkbox"> Fixed layout</label>
+      <label>Layout
+        <select name="layout">
+          <option value="dagre">Compact</option>
+          <option value="elkjs">Orthogonal</option>
+        </select>
+      </label>
+      <button name="zoomOut" type="button">Zoom -</button>
+      <button name="zoomReset" type="button">100%</button>
+      <button name="zoomIn" type="button">Zoom +</button>
+      <button name="zoomFit" type="button">Fit</button>
+      <span class="zoom-readout" data-zoom>100%</span>
       <button name="json" type="button">Reload JSON</button>
     </header>
     <nav>
@@ -38,16 +50,48 @@
     <div id="monitor"></div>
     <script>
       const circuitJson = {"subcircuits":{"Not":{"devices":{"dev0":{"type":"Input","net":"in","order":0,"bits":1},"dev1":{"type":"Output","net":"out","order":1,"bits":1},"dev2":{"label":"nand_0","type":"Nand","source_positions":[{"name":"p1-chip-gates/v/Not.v","from":{"line":5,"column":10},"to":{"line":5,"column":43}}],"bits":1}},"connectors":[{"to":{"id":"dev2","port":"in1"},"from":{"id":"dev0","port":"out"},"name":"in","source_positions":[{"name":"p1-chip-gates/v/Not.v","from":{"line":2,"column":16},"to":{"line":2,"column":18}}]},{"to":{"id":"dev2","port":"in2"},"from":{"id":"dev0","port":"out"},"name":"in","source_positions":[{"name":"p1-chip-gates/v/Not.v","from":{"line":2,"column":16},"to":{"line":2,"column":18}}]},{"to":{"id":"dev1","port":"in"},"from":{"id":"dev2","port":"out"},"name":"out","source_positions":[{"name":"p1-chip-gates/v/Not.v","from":{"line":3,"column":17},"to":{"line":3,"column":20}}]}]},"And":{"devices":{"dev0":{"type":"Input","net":"a","order":0,"bits":1},"dev1":{"type":"Input","net":"b","order":1,"bits":1},"dev2":{"type":"Output","net":"out","order":2,"bits":1},"dev3":{"label":"nand_0","type":"Nand","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":8,"column":10},"to":{"line":8,"column":44}}],"bits":1},"dev4":{"label":"not_1","type":"Subcircuit","celltype":"Not","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":9,"column":9},"to":{"line":9,"column":38}}]}},"connectors":[{"to":{"id":"dev3","port":"in1"},"from":{"id":"dev0","port":"out"},"name":"a","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":2,"column":16},"to":{"line":2,"column":17}}]},{"to":{"id":"dev3","port":"in2"},"from":{"id":"dev1","port":"out"},"name":"b","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":3,"column":16},"to":{"line":3,"column":17}}]},{"to":{"id":"dev2","port":"in"},"from":{"id":"dev4","port":"out"},"name":"out","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":4,"column":17},"to":{"line":4,"column":20}}]},{"to":{"id":"dev4","port":"in"},"from":{"id":"dev3","port":"out"},"name":"aNandb","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":6,"column":10},"to":{"line":6,"column":16}}]}]},"Or":{"devices":{"dev0":{"type":"Input","net":"a","order":0,"bits":1},"dev1":{"type":"Input","net":"b","order":1,"bits":1},"dev2":{"type":"Output","net":"out","order":2,"bits":1},"dev3":{"label":"nand_2","type":"Nand","source_positions":[{"name":"p1-chip-gates/v/Or.v","from":{"line":11,"column":10},"to":{"line":11,"column":43}}],"bits":1},"dev4":{"label":"not_0","type":"Subcircuit","celltype":"Not","source_positions":[{"name":"p1-chip-gates/v/Or.v","from":{"line":9,"column":9},"to":{"line":9,"column":32}}]},"dev5":{"label":"not_1","type":"Subcircuit","celltype":"Not","source_positions":[{"name":"p1-chip-gates/v/Or.v","from":{"line":10,"column":9},"to":{"line":10,"column":32}}]}},"connectors":[{"to":{"id":"dev4","port":"in"},"from":{"id":"dev0","port":"out"},"name":"a","source_positions":[{"name":"p1-chip-gates/v/Or.v","from":{"line":2,"column":16},"to":{"line":2,"column":17}}]},{"to":{"id":"dev5","port":"in"},"from":{"id":"dev1","port":"out"},"name":"b","source_positions":[{"name":"p1-chip-gates/v/Or.v","from":{"line":3,"column":16},"to":{"line":3,"column":17}}]},{"to":{"id":"dev2","port":"in"},"from":{"id":"dev3","port":"out"},"name":"out","source_positions":[{"name":"p1-chip-gates/v/Or.v","from":{"line":4,"column":17},"to":{"line":4,"column":20}}]},{"to":{"id":"dev3","port":"in1"},"from":{"id":"dev4","port":"out"},"name":"na","source_positions":[{"name":"p1-chip-gates/v/Or.v","from":{"line":6,"column":10},"to":{"line":6,"column":12}}]},{"to":{"id":"dev3","port":"in2"},"from":{"id":"dev5","port":"out"},"name":"nb","source_positions":[{"name":"p1-chip-gates/v/Or.v","from":{"line":7,"column":10},"to":{"line":7,"column":12}}]}]}},"devices":{"dev0":{"type":"Button","net":"a","order":0,"bits":1,"label":"a"},"dev1":{"type":"Button","net":"b","order":1,"bits":1,"label":"b"},"dev2":{"type":"Button","net":"sel","order":2,"bits":1,"label":"sel"},"dev3":{"type":"Lamp","net":"out","order":3,"bits":1,"label":"out"},"dev4":{"label":"and_1","type":"Subcircuit","celltype":"And","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":12,"column":9},"to":{"line":12,"column":43}}]},"dev5":{"label":"and_2","type":"Subcircuit","celltype":"And","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":13,"column":9},"to":{"line":13,"column":40}}]},"dev6":{"label":"not_0","type":"Subcircuit","celltype":"Not","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":11,"column":9},"to":{"line":11,"column":38}}]},"dev7":{"label":"or_3","type":"Subcircuit","celltype":"Or","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":14,"column":8},"to":{"line":14,"column":39}}]}},"connectors":[{"to":{"id":"dev4","port":"b"},"from":{"id":"dev0","port":"out"},"name":"a","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":2,"column":16},"to":{"line":2,"column":17}}]},{"to":{"id":"dev5","port":"b"},"from":{"id":"dev1","port":"out"},"name":"b","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":3,"column":16},"to":{"line":3,"column":17}}]},{"to":{"id":"dev5","port":"a"},"from":{"id":"dev2","port":"out"},"name":"sel","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":4,"column":16},"to":{"line":4,"column":19}}]},{"to":{"id":"dev6","port":"in"},"from":{"id":"dev2","port":"out"},"name":"sel","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":4,"column":16},"to":{"line":4,"column":19}}]},{"to":{"id":"dev3","port":"in"},"from":{"id":"dev7","port":"out"},"name":"out","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":5,"column":17},"to":{"line":5,"column":20}}]},{"to":{"id":"dev4","port":"a"},"from":{"id":"dev6","port":"out"},"name":"NotSel","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":7,"column":10},"to":{"line":7,"column":16}}]},{"to":{"id":"dev7","port":"a"},"from":{"id":"dev4","port":"out"},"name":"Sa","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":8,"column":10},"to":{"line":8,"column":12}}]},{"to":{"id":"dev7","port":"b"},"from":{"id":"dev5","port":"out"},"name":"Sb","source_positions":[{"name":"p1-chip-gates/v/Mux.v","from":{"line":9,"column":10},"to":{"line":9,"column":12}}]}]};
+      const defaultZoomLevel = 0;
       let circuit, monitor, monitorview, iopanel, paper;
+      let zoomLevel = defaultZoomLevel;
 
       document.addEventListener('DOMContentLoaded', () => {
         const start = $('button[name=start]');
         const stop = $('button[name=stop]');
         const fixedInput = $('input[name=fixed]');
+        const layoutSelect = $('select[name=layout]');
+        const zoomLabel = $('[data-zoom]');
         const papers = {};
 
         function setFixed(fixed) {
           Object.values(papers).forEach((p) => p.fixed(fixed));
+        }
+
+        function zoomScale(level) {
+          return Math.pow(1.1, level);
+        }
+
+        function updateZoomLabel() {
+          zoomLabel.text(Math.round(zoomScale(zoomLevel) * 100) + '%');
+        }
+
+        function setZoom(level) {
+          if (!paper || !circuit) return;
+          zoomLevel = Math.max(-30, Math.min(20, level));
+          circuit.scaleAndRefreshPaper(paper, zoomLevel);
+          updateZoomLabel();
+        }
+
+        function fitToWindow() {
+          if (!paper) return;
+          if (typeof paper.scaleContentToFit === 'function') {
+            paper.scaleContentToFit({ padding: 30, minScale: 0.02, maxScale: 2 });
+            const current = paper.scale && paper.scale();
+            const scale = current && current.sx ? current.sx : zoomScale(zoomLevel);
+            zoomLevel = Math.round(Math.log(scale) / Math.log(1.1));
+            updateZoomLabel();
+          } else {
+            setZoom(defaultZoomLevel - 2);
+          }
         }
 
         function loadCircuit(json) {
@@ -58,7 +102,7 @@
           $('#monitor').empty();
           $('#iopanel').empty();
 
-          circuit = new digitaljs.Circuit(json);
+          circuit = new digitaljs.Circuit(json, { layoutEngine: layoutSelect.val() });
           monitor = new digitaljs.Monitor(circuit);
           monitorview = new digitaljs.MonitorView({ model: monitor, el: $('#monitor') });
           iopanel = new digitaljs.IOPanelView({ model: circuit, el: $('#iopanel') });
@@ -75,6 +119,9 @@
             stop.prop('disabled', !circuit.running);
           });
           paper = circuit.displayOn($('#paper'));
+          zoomLevel = defaultZoomLevel;
+          updateZoomLabel();
+          paper.once('render:done', () => setZoom(zoomLevel));
           setFixed(fixedInput.prop('checked'));
           circuit.start();
         }
@@ -82,6 +129,16 @@
         start.on('click', () => circuit.start());
         stop.on('click', () => circuit.stop());
         fixedInput.on('change', () => setFixed(fixedInput.prop('checked')));
+        layoutSelect.on('change', () => loadCircuit(circuitJson));
+        $('button[name=zoomOut]').on('click', () => setZoom(zoomLevel - 1));
+        $('button[name=zoomReset]').on('click', () => setZoom(0));
+        $('button[name=zoomIn]').on('click', () => setZoom(zoomLevel + 1));
+        $('button[name=zoomFit]').on('click', fitToWindow);
+        $('#paper').on('wheel', (event) => {
+          if (!event.ctrlKey && !event.metaKey) return;
+          event.preventDefault();
+          setZoom(zoomLevel + (event.originalEvent.deltaY < 0 ? 1 : -1));
+        });
         $('button[name=json]').on('click', () => loadCircuit(circuit.toJSON(false)));
         loadCircuit(circuitJson);
       });
