@@ -5,8 +5,13 @@
     <title>Chip Visualizations</title>
     <style>
       body { margin: 0; font-family: system-ui, sans-serif; line-height: 1.45; color: #1f2937; }
-      main { max-width: 1100px; margin: 0 auto; padding: 24px; }
-      h1 { margin-top: 0; }
+      main { max-width: 1180px; margin: 0 auto; padding: 28px; }
+      h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -0.05em; }
+      .lede { color: #475569; font-size: 1.1rem; max-width: 860px; }
+      .hero { display: grid; gap: 16px; margin-bottom: 20px; }
+      .quick-links { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 4px; }
+      .quick-links a { background: #0f172a; color: white; border-radius: 999px; padding: 8px 12px; }
+      .quick-links a.secondary-link { background: #e2e8f0; color: #0f172a; }
       table { border-collapse: collapse; width: 100%; }
       th, td { border-bottom: 1px solid #e5e7eb; padding: 10px; text-align: left; vertical-align: top; }
       th { width: 140px; }
@@ -20,7 +25,16 @@
   </head>
   <body>
     <main>
-      <h1>Chip Visualizations</h1>
+      <section class="hero">
+        <h1>Jacputer Chip Visualizations</h1>
+        <p class="lede">A growing nand2tetris computer, compiled from hand-written HDL into Verilog and interactive browser schematics. Start with the ALU, then descend through the levels until the whole thing bottoms out at primitive NAND gates.</p>
+        <div class="quick-links">
+          <a href="ALU/original/index.html">Open ALU</a>
+          <a href="ALU/max/index.html">ALU NAND-expanded</a>
+          <a class="secondary-link" href="Mux16/original/index.html">Mux16</a>
+          <a class="secondary-link" href="Nand/original/index.html">Primitive NAND</a>
+        </div>
+      </section>
       <div class="note">
         <p><strong>Use this page as the circuit map.</strong> It is generated from project Verilog folders such as <code>p1-chip-gates/v/</code>. Each gate has <code>original</code>, <code>level1</code>, <code>level2</code>, and <code>max</code> views.</p>
         <p><code>original</code> keeps immediate subchips boxed. <code>level1</code> expands one layer. <code>level2</code> expands two layers. <code>max</code> expands recursively down to <code>Nand</code> leaves.</p>
