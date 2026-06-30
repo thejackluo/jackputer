@@ -1,6 +1,6 @@
 # Jacputer
 
-Jacputer is my nand2tetris computer build. The chips are written in HDL, compiled into structural Verilog, and rendered into interactive browser visualizations so the design can be explored from high-level blocks down to primitive NAND gates.
+Jacputer is my nand2tetris computer build. The chips are written in HDL, compiled into structural Verilog, and rendered into interactive browser visualizations so the design can be explored from high-level blocks down to primitive NAND gates. The goal for this project is to build a computer from scratch starting from the universial nand gates all the way up
 
 ## View The Site
 
