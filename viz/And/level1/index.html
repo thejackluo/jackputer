@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>And level1 DigitalJS</title>
+    <script defer src="../../assets/digitaljs/main.js"></script>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; color: #1f2937; }
+      header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #ddd; position: sticky; top: 0; background: white; z-index: 10; }
+      nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #e5e7eb; background: #f8fafc; }
+      nav a { color: #075985; text-decoration: none; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+      nav a.active { background: #dbeafe; color: #1e3a8a; }
+      nav a:hover { text-decoration: underline; }
+      .muted { color: #64748b; }
+      #paper { min-height: 70vh; border-bottom: 1px solid #ddd; }
+      #monitor, #iopanel { padding: 8px 12px; }
+      button { font: inherit; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>And level1</strong>
+      <button name="start" type="button">Start</button>
+      <button name="stop" type="button">Stop</button>
+      <label><input name="fixed" type="checkbox"> Fixed layout</label>
+      <button name="json" type="button">Reload JSON</button>
+    </header>
+    <nav>
+      <a href="../../index.html">All gates</a>
+      <a href="circuit.svg">Static SVG</a>
+      <span class="muted">Levels:</span>
+      <a href="../original/index.html">original</a><a class="active" href="index.html">level1</a><a href="../level2/index.html">level2</a><a href="../max/index.html">max</a>
+      <span class="muted">Subchips:</span>
+      <span class="muted">leaf</span>
+    </nav>
+    <div id="paper"></div>
+    <div id="iopanel"></div>
+    <div id="monitor"></div>
+    <script>
+      const circuitJson = {"subcircuits":{},"devices":{"dev0":{"type":"Button","net":"a","order":0,"bits":1,"label":"a"},"dev1":{"type":"Button","net":"b","order":1,"bits":1,"label":"b"},"dev2":{"type":"Lamp","net":"out","order":2,"bits":1,"label":"out"},"dev3":{"label":"nand_0","type":"Nand","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":8,"column":10},"to":{"line":8,"column":44}}],"bits":1},"dev4":{"label":"not_1.nand_0","type":"Nand","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":9,"column":9},"to":{"line":9,"column":38}},{"name":"p1-chip-gates/v/Not.v","from":{"line":5,"column":10},"to":{"line":5,"column":43}}],"bits":1}},"connectors":[{"to":{"id":"dev3","port":"in1"},"from":{"id":"dev0","port":"out"},"name":"a","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":2,"column":16},"to":{"line":2,"column":17}}]},{"to":{"id":"dev3","port":"in2"},"from":{"id":"dev1","port":"out"},"name":"b","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":3,"column":16},"to":{"line":3,"column":17}}]},{"to":{"id":"dev2","port":"in"},"from":{"id":"dev4","port":"out"},"name":"not_1.out","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":9,"column":9},"to":{"line":9,"column":38}},{"name":"p1-chip-gates/v/Not.v","from":{"line":3,"column":17},"to":{"line":3,"column":20}},{"name":"p1-chip-gates/v/And.v","from":{"line":4,"column":17},"to":{"line":4,"column":20}}]},{"to":{"id":"dev4","port":"in1"},"from":{"id":"dev3","port":"out"},"name":"aNandb","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":6,"column":10},"to":{"line":6,"column":16}},{"name":"p1-chip-gates/v/And.v","from":{"line":9,"column":9},"to":{"line":9,"column":38}},{"name":"p1-chip-gates/v/Not.v","from":{"line":2,"column":16},"to":{"line":2,"column":18}}]},{"to":{"id":"dev4","port":"in2"},"from":{"id":"dev3","port":"out"},"name":"aNandb","source_positions":[{"name":"p1-chip-gates/v/And.v","from":{"line":6,"column":10},"to":{"line":6,"column":16}},{"name":"p1-chip-gates/v/And.v","from":{"line":9,"column":9},"to":{"line":9,"column":38}},{"name":"p1-chip-gates/v/Not.v","from":{"line":2,"column":16},"to":{"line":2,"column":18}}]}]};
+      let circuit, monitor, monitorview, iopanel, paper;
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const start = $('button[name=start]');
+        const stop = $('button[name=stop]');
+        const fixedInput = $('input[name=fixed]');
+        const papers = {};
+
+        function setFixed(fixed) {
+          Object.values(papers).forEach((p) => p.fixed(fixed));
+        }
+
+        function loadCircuit(json) {
+          if (monitorview) monitorview.shutdown();
+          if (iopanel) iopanel.shutdown();
+          if (circuit) circuit.stop();
+          $('#paper').empty();
+          $('#monitor').empty();
+          $('#iopanel').empty();
+
+          circuit = new digitaljs.Circuit(json);
+          monitor = new digitaljs.Monitor(circuit);
+          monitorview = new digitaljs.MonitorView({ model: monitor, el: $('#monitor') });
+          iopanel = new digitaljs.IOPanelView({ model: circuit, el: $('#iopanel') });
+          circuit.on('new:paper', (newPaper) => {
+            newPaper.fixed(fixedInput.prop('checked'));
+            papers[newPaper.cid] = newPaper;
+            newPaper.on('element:pointerdblclick', (cellView) => {
+              window.digitaljsCell = cellView.model;
+              console.info('Double-clicked gate is available as window.digitaljsCell');
+            });
+          });
+          circuit.on('changeRunning', () => {
+            start.prop('disabled', circuit.running);
+            stop.prop('disabled', !circuit.running);
+          });
+          paper = circuit.displayOn($('#paper'));
+          setFixed(fixedInput.prop('checked'));
+          circuit.start();
+        }
+
+        start.on('click', () => circuit.start());
+        stop.on('click', () => circuit.stop());
+        fixedInput.on('change', () => setFixed(fixedInput.prop('checked')));
+        $('button[name=json]').on('click', () => loadCircuit(circuit.toJSON(false)));
+        loadCircuit(circuitJson);
+      });
+    </script>
+  </body>
+</html>

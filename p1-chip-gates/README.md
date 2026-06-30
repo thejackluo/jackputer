@@ -2,6 +2,8 @@
 
 This folder keeps nand2tetris HDL source files in `hdl/`, generated Verilog for completed chips in `v/`, and blackbox Verilog stubs for incomplete chips in `v-incomplete/`.
 
+Visualization output is generated at the repository root in `viz/` so the same workflow can grow to include later projects.
+
 ## Install Tools
 
 On Ubuntu or WSL Ubuntu:
@@ -44,13 +46,19 @@ p1-chip-gates/show_chip.sh Mux level2
 p1-chip-gates/show_chip.sh Mux max
 ```
 
-The default mode writes per-gate folders under `p1-chip-gates/viz/`:
+From the repository root, you can also use the root wrapper:
+
+```bash
+./show_chip.sh Mux max
+```
+
+The default mode writes per-gate folders under the repository-level `viz/` directory:
 
 ```text
-p1-chip-gates/viz/Mux/original/
-p1-chip-gates/viz/Mux/level1/
-p1-chip-gates/viz/Mux/level2/
-p1-chip-gates/viz/Mux/max/
+viz/Mux/original/
+viz/Mux/level1/
+viz/Mux/level2/
+viz/Mux/max/
 ```
 
 Each level folder contains:
@@ -65,12 +73,19 @@ For the most reliable DigitalJS experience from WSL, serve the folder locally an
 p1-chip-gates/serve_viz.sh
 ```
 
+Or from the repository root:
+
+```bash
+./serve_viz.sh
+```
+
 Then open:
 
 ```text
-http://localhost:8000/Mux/original/
-http://localhost:8000/Mux/max/
-http://localhost:8000/Mux8Way16/max/
+http://localhost:8000/index.html
+http://localhost:8000/Mux/original/index.html
+http://localhost:8000/Mux/max/index.html
+http://localhost:8000/Mux8Way16/max/index.html
 ```
 
 The recursion modes are:

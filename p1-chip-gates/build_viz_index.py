@@ -9,15 +9,16 @@ from collections import Counter
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent
-VIZ = ROOT / "viz"
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+VIZ = REPO_ROOT / "viz"
 LEVELS = ["original", "level1", "level2", "max"]
 KEYWORDS = {"assign", "if", "for", "module", "wire"}
 
 
 def parse_modules() -> dict[str, Counter[str]]:
     modules: dict[str, Counter[str]] = {}
-    for path in sorted((ROOT / "v").glob("*.v")):
+    for path in sorted(REPO_ROOT.glob("*/v/*.v")):
         text = path.read_text()
         for match in re.finditer(r"\bmodule\s+(\w+)\s*\((.*?)\);(.*?)\bendmodule", text, flags=re.S):
             name = match.group(1)
@@ -70,7 +71,7 @@ def build_index(modules: dict[str, Counter[str]]) -> None:
 <html>
   <head>
     <meta charset="utf-8">
-    <title>P1 Chip Visualizations</title>
+    <title>Chip Visualizations</title>
     <style>
       body {{ margin: 0; font-family: system-ui, sans-serif; line-height: 1.45; color: #1f2937; }}
       main {{ max-width: 1100px; margin: 0 auto; padding: 24px; }}
@@ -88,9 +89,9 @@ def build_index(modules: dict[str, Counter[str]]) -> None:
   </head>
   <body>
     <main>
-      <h1>P1 Chip Visualizations</h1>
+      <h1>Chip Visualizations</h1>
       <div class="note">
-        <p><strong>Use this page as the circuit map.</strong> Each gate has <code>original</code>, <code>level1</code>, <code>level2</code>, and <code>max</code> views.</p>
+        <p><strong>Use this page as the circuit map.</strong> It is generated from project Verilog folders such as <code>p1-chip-gates/v/</code>. Each gate has <code>original</code>, <code>level1</code>, <code>level2</code>, and <code>max</code> views.</p>
         <p><code>original</code> keeps immediate subchips boxed. <code>level1</code> expands one layer. <code>level2</code> expands two layers. <code>max</code> expands recursively down to <code>Nand</code> leaves.</p>
         <p>Flattened views preserve instance names such as <code>mux_0.and_1</code>, but Yosys does not draw nested boxes around each expanded instance. Use the child links to jump into each subchip directly.</p>
       </div>

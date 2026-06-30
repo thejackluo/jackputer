@@ -1,0 +1,12 @@
+digraph "NandPrimitiveView" {
+label="NandPrimitiveView";
+rankdir="LR";
+remincross=true;
+n1 [ shape=octagon, label="a", color="black", fontcolor="black" ];
+n2 [ shape=octagon, label="b", color="black", fontcolor="black" ];
+n3 [ shape=octagon, label="out", color="black", fontcolor="black" ];
+c4 [ shape=record, label="{{<p1> a|<p2> b}|nand_gate\nNand|{<p3> out}}",  ];
+n1:e -> c4:p1:w [color="black", fontcolor="black", label=""];
+n2:e -> c4:p2:w [color="black", fontcolor="black", label=""];
+c4:p3:e -> n3:w [color="black", fontcolor="black", label=""];
+}

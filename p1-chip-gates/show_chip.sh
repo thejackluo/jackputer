@@ -36,11 +36,13 @@ if ! command -v yosys >/dev/null 2>&1; then
     exit 1
 fi
 
-chip_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$chip_dir"
-mkdir -p viz
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+cd "$repo_root"
+viz_dir="viz"
+mkdir -p "$viz_dir"
 shopt -s nullglob
-source_verilog_files=(v/*.v v-incomplete/*.v)
+source_verilog_files=(*/v/*.v */v-incomplete/*.v)
 verilog_files=()
 
 if [[ ${#source_verilog_files[@]} -eq 0 ]]; then
@@ -48,7 +50,7 @@ if [[ ${#source_verilog_files[@]} -eq 0 ]]; then
     exit 1
 fi
 
-nand_primitive="viz/.NandPrimitive.v"
+nand_primitive="$viz_dir/.NandPrimitive.v"
 cat > "$nand_primitive" <<'EOF'
 (* blackbox *)
 module Nand(
@@ -69,7 +71,7 @@ verilog_files+=("$nand_primitive")
 read_cmd="read_verilog ${verilog_files[*]}"
 
 list_modules() {
-    for file in v/*.v; do
+    for file in */v/*.v; do
         basename "$file" .v
     done | sort
 }
@@ -178,7 +180,7 @@ generate_one() {
     local selected_top="$1"
     local selected_view="$2"
     local selected_format="$3"
-    local output_dir="viz/${selected_top}/${selected_view}"
+    local output_dir="${viz_dir}/${selected_top}/${selected_view}"
     local prefix="${output_dir}/circuit"
     local dot_file="${prefix}.dot"
     local svg_file="${prefix}.svg"
@@ -217,24 +219,24 @@ EOF
             yosys -q -p "${selected_read_cmd}; ${prep_cmd}; show -format dot -viewer none -prefix ${prefix} ${yosys_top}"
             clean_dot_labels "$dot_file"
             dot -Tsvg "$dot_file" -o "$svg_file"
-            printf 'wrote p1-chip-gates/%s\n' "$svg_file"
+            printf 'wrote %s\n' "$svg_file"
             ;;
         dot)
             yosys -q -p "${selected_read_cmd}; ${prep_cmd}; show -format dot -viewer none -prefix ${prefix} ${yosys_top}"
             clean_dot_labels "$dot_file"
-            printf 'wrote p1-chip-gates/%s\n' "$dot_file"
+            printf 'wrote %s\n' "$dot_file"
             ;;
         digitaljs)
             if ! command -v node >/dev/null 2>&1; then
                 printf 'node is not installed. Install Node.js or use nvm, then run: npm install\n' >&2
                 exit 1
             fi
-            if [[ ! -d ../node_modules/yosys2digitaljs || ! -d ../node_modules/digitaljs ]]; then
+            if [[ ! -d node_modules/yosys2digitaljs || ! -d node_modules/digitaljs ]]; then
                 printf 'DigitalJS dependencies are not installed. Run: npm install\n' >&2
                 exit 1
             fi
             yosys -q -p "${selected_read_cmd}; ${prep_cmd}; write_json ${json_file}"
-            node digitaljs_export.js "$json_file" "$output_dir" "${selected_top} ${selected_view}"
+            node "$script_dir/digitaljs_export.js" "$json_file" "$output_dir" "${selected_top} ${selected_view}"
             rm -f "$json_file"
             ;;
         all)
@@ -278,7 +280,7 @@ else
 fi
 
 if [[ "$format" != "open" ]]; then
-    python3 build_viz_index.py
+    python3 "$script_dir/build_viz_index.py"
 fi
 
 rm -f "$nand_primitive"

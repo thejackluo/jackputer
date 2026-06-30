@@ -11,8 +11,8 @@ if (!jsonPath || !outputDir || !title) {
   process.exit(2);
 }
 
-const root = path.resolve(__dirname, '..');
-const digitaljsDist = path.join(root, 'node_modules', 'digitaljs', 'dist');
+const repoRoot = path.resolve(__dirname, '..');
+const digitaljsDist = path.join(repoRoot, 'node_modules', 'digitaljs', 'dist');
 const mainJs = path.join(digitaljsDist, 'main.js');
 
 if (!fs.existsSync(mainJs)) {
@@ -21,7 +21,7 @@ if (!fs.existsSync(mainJs)) {
 }
 
 fs.mkdirSync(outputDir, { recursive: true });
-const assetsDir = path.join(__dirname, 'viz', 'assets', 'digitaljs');
+const assetsDir = path.join(repoRoot, 'viz', 'assets', 'digitaljs');
 fs.mkdirSync(assetsDir, { recursive: true });
 for (const entry of fs.readdirSync(digitaljsDist)) {
   if (entry.endsWith('.js') || entry.endsWith('.txt')) {
@@ -38,8 +38,8 @@ const circuit = yosys2digitaljs(yosysJson, {});
 io_ui(circuit);
 
 const htmlOut = path.join(outputDir, 'index.html');
-const moduleDeps = parseModules(path.join(__dirname, 'v'));
-const dashboardPath = rel(outputDir, path.join(__dirname, 'viz', 'index.html'));
+const moduleDeps = parseModules(repoRoot);
+const dashboardPath = rel(outputDir, path.join(repoRoot, 'viz', 'index.html'));
 const svgPath = rel(outputDir, path.join(outputDir, 'circuit.svg'));
 const childNav = renderChildNav(outputDir, moduleDeps.get(gateName) || new Map());
 const levelNav = renderLevelNav(outputDir, gateName, viewName);
@@ -153,12 +153,22 @@ function rel(fromDir, toPath) {
   return path.relative(fromDir, toPath).replaceAll(path.sep, '/') || '.';
 }
 
-function parseModules(vDir) {
+function parseModules(rootDir) {
   const modules = new Map();
-  if (!fs.existsSync(vDir)) return modules;
-  for (const entry of fs.readdirSync(vDir).sort()) {
-    if (!entry.endsWith('.v')) continue;
-    const text = fs.readFileSync(path.join(vDir, entry), 'utf8');
+  if (!fs.existsSync(rootDir)) return modules;
+  for (const project of fs.readdirSync(rootDir).sort()) {
+    const vDir = path.join(rootDir, project, 'v');
+    if (!fs.existsSync(vDir) || !fs.statSync(vDir).isDirectory()) continue;
+    for (const entry of fs.readdirSync(vDir).sort()) {
+      if (!entry.endsWith('.v')) continue;
+      const text = fs.readFileSync(path.join(vDir, entry), 'utf8');
+      parseModuleText(text, modules);
+    }
+  }
+  return modules;
+}
+
+function parseModuleText(text, modules) {
     const moduleRe = /\bmodule\s+(\w+)\s*\((.*?)\);([\s\S]*?)\bendmodule/g;
     let moduleMatch;
     while ((moduleMatch = moduleRe.exec(text)) !== null) {
@@ -174,8 +184,6 @@ function parseModules(vDir) {
       }
       modules.set(name, deps);
     }
-  }
-  return modules;
 }
 
 function promoteNandPrimitive(yosysJson) {
@@ -221,7 +229,7 @@ function pruneUnreachableModules(yosysJson, topModule) {
 
 function renderLevelNav(outputDir, gateName, viewName) {
   return levels.map((level) => {
-    const target = path.join(__dirname, 'viz', gateName, level, 'index.html');
+    const target = path.join(repoRoot, 'viz', gateName, level, 'index.html');
     const active = level === viewName ? ' class="active"' : '';
     return `<a${active} href="${rel(outputDir, target)}">${escapeHtml(level)}</a>`;
   }).join('');
@@ -230,7 +238,7 @@ function renderLevelNav(outputDir, gateName, viewName) {
 function renderChildNav(outputDir, deps) {
   if (!deps.size) return '<span class="muted">leaf</span>';
   return Array.from(deps.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([child, count]) => {
-    const target = path.join(__dirname, 'viz', child, 'original', 'index.html');
+    const target = path.join(repoRoot, 'viz', child, 'original', 'index.html');
     const label = count > 1 ? `${count}x ${child}` : child;
     return `<a href="${rel(outputDir, target)}">${escapeHtml(label)}</a>`;
   }).join('');
