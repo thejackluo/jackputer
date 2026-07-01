@@ -5,6 +5,8 @@ top="${1:-Mux}"
 view="${2:-original}"
 format="${3:-svg}"
 levels=(original level1 level2 max)
+huge_max_modules=(PC RAM64 RAM512 RAM4K RAM16K)
+huge_level2_modules=(PC RAM512 RAM4K RAM16K)
 
 case "$view" in
     svg|dot|open)
@@ -60,6 +62,7 @@ module Nand(
 );
 endmodule
 EOF
+trap 'rm -f "$nand_primitive"' EXIT
 
 for file in "${source_verilog_files[@]}"; do
     if [[ "$(basename "$file")" != "Nand.v" ]]; then
@@ -131,7 +134,7 @@ if view.startswith("level"):
 
 commands = []
 for module in sorted(keep):
-    if module != top and module != "Nand":
+    if module != top and module not in {"Nand", "DFF"}:
         commands.append(f"setattr -mod -set keep_hierarchy 1 {module}")
 commands.append(f"flatten {top}")
 commands.append("opt_clean")
@@ -176,6 +179,93 @@ path.write_text(text)
 PY
 }
 
+huge_child_module() {
+    case "$1" in
+        RAM16K) printf 'RAM4K' ;;
+        RAM4K) printf 'RAM512' ;;
+        RAM512) printf 'RAM64' ;;
+        RAM64) printf 'RAM8' ;;
+        *) printf '' ;;
+    esac
+}
+
+huge_summary() {
+    case "$1" in
+        RAM64) printf 'RAM64 expands to 8 RAM8 chips, 64 registers, and 1,024 one-bit storage cells.' ;;
+        RAM512) printf 'RAM512 expands to 8 RAM64 chips, 512 registers, and 8,192 one-bit storage cells.' ;;
+        RAM4K) printf 'RAM4K expands to 8 RAM512 chips, 4,096 registers, and 65,536 one-bit storage cells.' ;;
+        RAM16K) printf 'RAM16K expands to 4 RAM4K chips, 16,384 registers, and 262,144 one-bit storage cells.' ;;
+        PC) printf 'PC expands through Register feedback, increment logic, and mux control. Deeper flat graph layouts are currently impractical because of the sequential feedback loop.' ;;
+        *) printf 'This RAM view is too large for a practical flat browser render.' ;;
+    esac
+}
+
+generate_huge_page() {
+    local selected_top="$1"
+    local selected_view="$2"
+    local output_dir="${viz_dir}/${selected_top}/${selected_view}"
+    local child
+    local summary
+
+    mkdir -p "$output_dir"
+    child="$(huge_child_module "$selected_top")"
+    summary="$(huge_summary "$selected_top")"
+
+    cat > "${output_dir}/index.html" <<EOF
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>${selected_top} ${selected_view} Hierarchical View</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; line-height: 1.5; color: #1f2937; }
+      main { max-width: 900px; margin: 0 auto; padding: 28px; }
+      a { color: #075985; font-weight: 650; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .card { border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; padding: 16px; margin: 16px 0; }
+      code { background: #e2e8f0; padding: 2px 5px; border-radius: 4px; }
+      li { margin: 6px 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p><a href="../../index.html">All gates</a></p>
+      <h1>${selected_top} ${selected_view}</h1>
+      <div class="card">
+        <p><strong>Hierarchical max view.</strong> ${summary}</p>
+        <p>A flat DigitalJS render at this depth would create too many browser nodes and wires to be useful. This page keeps the full expansion navigable as a memory hierarchy instead of generating one enormous canvas.</p>
+      </div>
+      <h2>Available Views</h2>
+      <ul>
+        <li><a href="../original/index.html">${selected_top} original</a></li>
+        <li><a href="../level1/index.html">${selected_top} level1</a></li>
+EOF
+    if [[ -e "${viz_dir}/${selected_top}/level2/index.html" ]]; then
+        printf '        <li><a href="../level2/index.html">%s level2</a></li>\n' "$selected_top" >> "${output_dir}/index.html"
+    fi
+    if [[ -n "$child" ]]; then
+        cat >> "${output_dir}/index.html" <<EOF
+      </ul>
+      <h2>Drill Down</h2>
+      <ul>
+        <li><a href="../../${child}/original/index.html">${child} original</a></li>
+        <li><a href="../../${child}/max/index.html">${child} max / deepest practical view</a></li>
+      </ul>
+EOF
+    else
+        printf '      </ul>\n' >> "${output_dir}/index.html"
+    fi
+    cat >> "${output_dir}/index.html" <<EOF
+      <div class="card">
+        <p>To force flat generation anyway, run with <code>ALLOW_HUGE_LEVEL2=1</code> or <code>ALLOW_HUGE_MAX=1</code>. Expect long generation times and poor browser performance for large RAMs.</p>
+      </div>
+    </main>
+  </body>
+</html>
+EOF
+    printf 'wrote %s\n' "${output_dir}/index.html"
+}
+
 generate_one() {
     local selected_top="$1"
     local selected_view="$2"
@@ -190,6 +280,23 @@ generate_one() {
     local selected_read_cmd="$read_cmd"
     local nand_wrapper=""
     local extra_flatten_files=()
+
+    if [[ "$selected_view" == "max" ]]; then
+        for huge_module in "${huge_max_modules[@]}"; do
+            if [[ "$selected_top" == "$huge_module" && "${ALLOW_HUGE_MAX:-0}" != "1" ]]; then
+                generate_huge_page "$selected_top" "$selected_view"
+                return
+            fi
+        done
+    fi
+    if [[ "$selected_view" == "level2" ]]; then
+        for huge_module in "${huge_level2_modules[@]}"; do
+            if [[ "$selected_top" == "$huge_module" && "${ALLOW_HUGE_LEVEL2:-0}" != "1" ]]; then
+                generate_huge_page "$selected_top" "$selected_view"
+                return
+            fi
+        done
+    fi
 
     mkdir -p "$output_dir"
     if [[ "$selected_top" == "Nand" ]]; then
