@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>RAM16K max Hierarchical View</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; line-height: 1.5; color: #1f2937; }
+      main { max-width: 900px; margin: 0 auto; padding: 28px; }
+      a { color: #075985; font-weight: 650; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .card { border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; padding: 16px; margin: 16px 0; }
+      code { background: #e2e8f0; padding: 2px 5px; border-radius: 4px; }
+      li { margin: 6px 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p><a href="../../index.html">All gates</a></p>
+      <h1>RAM16K max</h1>
+      <div class="card">
+        <p><strong>Hierarchical max view.</strong> RAM16K expands to 4 RAM4K chips, 16,384 registers, and 262,144 one-bit storage cells.</p>
+        <p>A flat DigitalJS render at this depth would create too many browser nodes and wires to be useful. This page keeps the full expansion navigable as a memory hierarchy instead of generating one enormous canvas.</p>
+      </div>
+      <h2>Available Views</h2>
+      <ul>
+        <li><a href="../original/index.html">RAM16K original</a></li>
+        <li><a href="../level1/index.html">RAM16K level1</a></li>
+        <li><a href="../level2/index.html">RAM16K level2</a></li>
+      </ul>
+      <h2>Drill Down</h2>
+      <ul>
+        <li><a href="../../RAM4K/original/index.html">RAM4K original</a></li>
+        <li><a href="../../RAM4K/max/index.html">RAM4K max / deepest practical view</a></li>
+      </ul>
+      <div class="card">
+        <p>To force flat generation anyway, run with <code>ALLOW_HUGE_LEVEL2=1</code> or <code>ALLOW_HUGE_MAX=1</code>. Expect long generation times and poor browser performance for large RAMs.</p>
+      </div>
+    </main>
+  </body>
+</html>
