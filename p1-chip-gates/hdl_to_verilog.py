@@ -18,6 +18,14 @@ NAND_VERILOG = """module Nand(
 endmodule
 """
 
+DFF_VERILOG = """(* blackbox *)
+module DFF(
+    input wire in,
+    output wire out
+);
+endmodule
+"""
+
 
 @dataclass(frozen=True)
 class Pin:
@@ -382,6 +390,7 @@ def main() -> None:
     parser.add_argument("--interface-dir", type=Path, action="append", default=[], help="extra .hdl directory used only for dependency pin widths")
     parser.add_argument("--incomplete-output-dir", type=Path, default=script_dir / "v-incomplete", help="write blackbox stubs for incomplete chips")
     parser.add_argument("--no-nand", action="store_true", help="do not write a generated Nand.v into the output directory")
+    parser.add_argument("--dff-blackbox", action="store_true", help="write a DFF blackbox stub for project 3 sequential chips")
     parser.add_argument("--no-clean", action="store_true", help="do not remove old generated .v files before writing")
     args = parser.parse_args()
 
@@ -399,6 +408,8 @@ def main() -> None:
 
     if not args.no_nand:
         write_generated(args.output_dir / "Nand.v", NAND_VERILOG)
+    if args.dff_blackbox and args.incomplete_output_dir:
+        write_generated(args.incomplete_output_dir / "DFF.v", DFF_VERILOG)
 
     for chip in sorted(chips.values(), key=lambda item: item.name):
         if not chip.complete:
