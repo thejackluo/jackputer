@@ -35,6 +35,7 @@ const yosysJson = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 promoteNandPrimitive(yosysJson);
 pruneUnreachableModules(yosysJson, yosysTop);
 const circuit = yosys2digitaljs(yosysJson, {});
+promoteDffPrimitive(circuit);
 io_ui(circuit);
 
 const htmlOut = path.join(outputDir, 'index.html');
@@ -84,6 +85,8 @@ const html = `<!doctype html>
       <button name="zoomIn" type="button">Zoom +</button>
       <button name="zoomFit" type="button">Fit</button>
       <span class="zoom-readout" data-zoom>100%</span>
+      <button name="clearCache" type="button">Clear Layout Cache</button>
+      <span class="muted" data-cache>layout cache ready</span>
       <button name="json" type="button">Reload JSON</button>
     </header>
     <nav>
@@ -99,6 +102,7 @@ const html = `<!doctype html>
     <div id="monitor"></div>
     <script>
       const circuitJson = ${JSON.stringify(circuit)};
+      const circuitHash = '${hashString(JSON.stringify(circuit))}';
       const defaultZoomLevel = ${defaultZoomLevel};
       let circuit, monitor, monitorview, iopanel, paper;
       let zoomLevel = defaultZoomLevel;
@@ -109,7 +113,70 @@ const html = `<!doctype html>
         const fixedInput = $('input[name=fixed]');
         const layoutSelect = $('select[name=layout]');
         const zoomLabel = $('[data-zoom]');
+        const cacheLabel = $('[data-cache]');
         const papers = {};
+
+        function cacheKey() {
+          return 'jacputer-layout-v2:' + circuitHash + ':' + layoutSelect.val();
+        }
+
+        function updateCacheStatus(message) {
+          cacheLabel.text(message);
+        }
+
+        function openLayoutCache() {
+          return new Promise((resolve) => {
+            if (!('indexedDB' in window)) return resolve(null);
+            const request = indexedDB.open('jacputer-layout-cache', 1);
+            request.onupgradeneeded = () => request.result.createObjectStore('layouts');
+            request.onerror = () => resolve(null);
+            request.onsuccess = () => resolve(request.result);
+          });
+        }
+
+        async function readLayoutCache(key) {
+          const db = await openLayoutCache();
+          if (!db) return null;
+          return new Promise((resolve) => {
+            const tx = db.transaction('layouts', 'readonly');
+            const request = tx.objectStore('layouts').get(key);
+            request.onerror = () => resolve(null);
+            request.onsuccess = () => resolve(request.result || null);
+            tx.oncomplete = () => db.close();
+          });
+        }
+
+        async function writeLayoutCache(key, json) {
+          const db = await openLayoutCache();
+          if (!db) return updateCacheStatus('layout cache unavailable');
+          return new Promise((resolve) => {
+            const tx = db.transaction('layouts', 'readwrite');
+            tx.objectStore('layouts').put(json, key);
+            tx.onerror = () => {
+              updateCacheStatus('layout cache failed');
+              resolve();
+            };
+            tx.oncomplete = () => {
+              db.close();
+              updateCacheStatus('layout cached');
+              resolve();
+            };
+          });
+        }
+
+        async function deleteLayoutCache(key) {
+          const db = await openLayoutCache();
+          if (!db) return;
+          return new Promise((resolve) => {
+            const tx = db.transaction('layouts', 'readwrite');
+            tx.objectStore('layouts').delete(key);
+            tx.oncomplete = () => {
+              db.close();
+              resolve();
+            };
+            tx.onerror = () => resolve();
+          });
+        }
 
         function setFixed(fixed) {
           Object.values(papers).forEach((p) => p.fixed(fixed));
@@ -143,15 +210,22 @@ const html = `<!doctype html>
           }
         }
 
-        function loadCircuit(json) {
+        async function loadCircuit(json, options = {}) {
+          const useCache = options.useCache !== false;
+          updateCacheStatus(useCache ? 'checking layout cache...' : 'rebuilding layout...');
+          const key = cacheKey();
+          const cachedJson = useCache ? await readLayoutCache(key) : null;
+          const renderJson = cachedJson || json;
+
           if (monitorview) monitorview.shutdown();
           if (iopanel) iopanel.shutdown();
           if (circuit) circuit.stop();
+          Object.keys(papers).forEach((key) => delete papers[key]);
           $('#paper').empty();
           $('#monitor').empty();
           $('#iopanel').empty();
 
-          circuit = new digitaljs.Circuit(json, { layoutEngine: layoutSelect.val() });
+          circuit = new digitaljs.Circuit(renderJson, { layoutEngine: layoutSelect.val() });
           monitor = new digitaljs.Monitor(circuit);
           monitorview = new digitaljs.MonitorView({ model: monitor, el: $('#monitor') });
           iopanel = new digitaljs.IOPanelView({ model: circuit, el: $('#iopanel') });
@@ -170,7 +244,15 @@ const html = `<!doctype html>
           paper = circuit.displayOn($('#paper'));
           zoomLevel = defaultZoomLevel;
           updateZoomLabel();
-          paper.once('render:done', () => setZoom(zoomLevel));
+          paper.once('render:done', () => {
+            setZoom(zoomLevel);
+            if (cachedJson) {
+              updateCacheStatus('using cached layout');
+            } else {
+              updateCacheStatus('caching layout...');
+              window.requestAnimationFrame(() => writeLayoutCache(key, circuit.toJSON(true)));
+            }
+          });
           setFixed(fixedInput.prop('checked'));
           circuit.start();
         }
@@ -188,7 +270,12 @@ const html = `<!doctype html>
           event.preventDefault();
           setZoom(zoomLevel + (event.originalEvent.deltaY < 0 ? 1 : -1));
         });
-        $('button[name=json]').on('click', () => loadCircuit(circuit.toJSON(false)));
+        $('button[name=clearCache]').on('click', async () => {
+          await deleteLayoutCache(cacheKey());
+          updateCacheStatus('layout cache cleared');
+          loadCircuit(circuitJson, { useCache: false });
+        });
+        $('button[name=json]').on('click', () => loadCircuit(circuitJson, { useCache: false }));
         loadCircuit(circuitJson);
       });
     </script>
@@ -206,6 +293,15 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
 }
 
 function rel(fromDir, toPath) {
@@ -268,6 +364,55 @@ function promoteNandPrimitive(yosysJson) {
   delete yosysJson.modules?.Nand;
 }
 
+function promoteDffPrimitive(circuitJson) {
+  function visit(data) {
+    let clockId = null;
+    let nextAutoId = 0;
+
+    function makeAutoId(prefix) {
+      let id;
+      do {
+        id = `${prefix}${nextAutoId++}`;
+      } while (data.devices?.[id]);
+      return id;
+    }
+
+    function ensureClock() {
+      if (clockId) return clockId;
+      data.devices ||= {};
+      clockId = makeAutoId('autoClock');
+      data.devices[clockId] = {
+        type: 'Clock',
+        label: 'implicit clock',
+      };
+      return clockId;
+    }
+
+    for (const device of Object.values(data.devices || {})) {
+      if (device.type === 'Subcircuit' && device.celltype === 'DFF') {
+        device.type = 'Dff';
+        device.bits = 1;
+        device.polarity = { clock: true };
+        delete device.celltype;
+      }
+    }
+    for (const [id, device] of Object.entries(data.devices || {})) {
+      if (device.type !== 'Dff') continue;
+      data.connectors ||= [];
+      if (data.connectors.some((conn) => conn.to?.id === id && conn.to?.port === 'clk')) continue;
+      data.connectors.push({
+        from: { id: ensureClock(), port: 'out' },
+        to: { id, port: 'clk' },
+        name: 'implicit clock',
+      });
+    }
+    delete data.subcircuits?.DFF;
+    for (const subcircuit of Object.values(data.subcircuits || {})) visit(subcircuit);
+  }
+
+  visit(circuitJson);
+}
+
 function pruneUnreachableModules(yosysJson, topModule) {
   const modules = yosysJson.modules || {};
   const reachable = new Set();
@@ -287,10 +432,11 @@ function pruneUnreachableModules(yosysJson, topModule) {
 }
 
 function renderLevelNav(outputDir, gateName, viewName) {
-  return levels.map((level) => {
+  return levels.flatMap((level) => {
     const target = path.join(repoRoot, 'viz', gateName, level, 'index.html');
+    if (level !== viewName && !fs.existsSync(target)) return [];
     const active = level === viewName ? ' class="active"' : '';
-    return `<a${active} href="${rel(outputDir, target)}">${escapeHtml(level)}</a>`;
+    return [`<a${active} href="${rel(outputDir, target)}">${escapeHtml(level)}</a>`];
   }).join('');
 }
 
