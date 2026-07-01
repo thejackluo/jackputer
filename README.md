@@ -27,6 +27,7 @@ viz/ALU/max/index.html
 
 - `p1-chip-gates/`: project 1 gates, HDL compiler, and visualization tooling.
 - `p2-alu-chip/`: project 2 arithmetic chips and ALU.
+- `p3-ram-pc/`: project 3 memory chips and program counter.
 - `viz/`: generated interactive and SVG visualizations for all compiled chips.
 
 ## Visualization Levels
@@ -59,6 +60,12 @@ Regenerate project 2 Verilog using project 1 interfaces:
 python3 p1-chip-gates/hdl_to_verilog.py p2-alu-chip p2-alu-chip/v --interface-dir p1-chip-gates/hdl --incomplete-output-dir p2-alu-chip/v-incomplete --no-nand
 ```
 
+Regenerate project 3 RAM Verilog using earlier projects as interfaces:
+
+```bash
+python3 p1-chip-gates/hdl_to_verilog.py p3-ram-pc p3-ram-pc/v --interface-dir p1-chip-gates/hdl --interface-dir p2-alu-chip --incomplete-output-dir p3-ram-pc/v-incomplete --no-nand --dff-blackbox
+```
+
 Regenerate visualizations and the root site index:
 
 ```bash
@@ -68,3 +75,9 @@ Regenerate visualizations and the root site index:
 ## Notes
 
 The interactive pages include layout switching, zoom controls, fit-to-screen, and Ctrl/Cmd-wheel zoom for large circuits like `ALU/max`.
+
+Large RAM chips are guarded from impractical flat expansion. `RAM16K/max` exists as a hierarchical max page with counts and drill-down links instead of a single enormous canvas. By default, `RAM64` uses a hierarchical `max`, and `RAM512`, `RAM4K`, and `RAM16K` use hierarchical `level2` and `max` pages. Set `ALLOW_HUGE_LEVEL2=1` or `ALLOW_HUGE_MAX=1` when invoking `./show_chip.sh` if you explicitly want to force flat generation.
+
+`PC/original` and `PC/level1` render as circuits. Deeper PC views use hierarchical pages because the register feedback loop makes flat graph layout impractical right now.
+
+Sequential chips use `DFF` as a primitive leaf. The DigitalJS pages add an implicit shared clock for DFF devices and cache laid-out circuit positions in the browser with IndexedDB, so repeat visits can avoid recomputing large layouts.
