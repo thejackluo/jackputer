@@ -1,0 +1,25 @@
+digraph "Bit" {
+label="Bit";
+rankdir="LR";
+remincross=true;
+n1 [ shape=diamond, label="_1_out_wire", color="black", fontcolor="black" ];
+n2 [ shape=octagon, label="in", color="black", fontcolor="black" ];
+n3 [ shape=octagon, label="load", color="black", fontcolor="black" ];
+n4 [ shape=diamond, label="loop", color="black", fontcolor="black" ];
+n5 [ shape=diamond, label="muxOut", color="black", fontcolor="black" ];
+n6 [ shape=octagon, label="out", color="black", fontcolor="black" ];
+c7 [ shape=record, label="{{<p2> in}|dff_1\nDFF|{<p6> out}}",  ];
+c11 [ shape=record, label="{{<p8> a|<p9> b|<p10> sel}|mux_0\nMux|{<p6> out}}",  ];
+x0 [shape=box, style=rounded, label="BUF", ];
+x1 [shape=box, style=rounded, label="BUF", ];
+c7:p6:e -> n1:w [color="black", fontcolor="black", label=""];
+n1:e -> c11:p8:w [color="black", fontcolor="black", label=""];
+n1:e -> x0:w [color="black", fontcolor="black", label=""];
+n1:e -> x1:w [color="black", fontcolor="black", label=""];
+n2:e -> c11:p9:w [color="black", fontcolor="black", label=""];
+n3:e -> c11:p10:w [color="black", fontcolor="black", label=""];
+x0:e -> n4:w [color="black", fontcolor="black", label=""];
+c11:p6:e -> n5:w [color="black", fontcolor="black", label=""];
+n5:e -> c7:p2:w [color="black", fontcolor="black", label=""];
+x1:e -> n6:w [color="black", fontcolor="black", label=""];
+}
